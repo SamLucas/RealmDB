@@ -1,59 +1,116 @@
-import React from 'react';
-
+import React, {useState, useEffect} from 'react';
+import {Keyboard} from 'react-native';
 import {
-  Text, Image, StyleSheet, Dimensions, ImageBackground, StatusBar,
-} from 'react-native';
+  Container,
+  Title,
+  Form,
+  Input,
+  Submit,
+  IconAdd,
+  List,
+  Loading,
+} from './styles';
+import Repository from '~/components/repository';
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  fileName: {
-    fontWeight: 'bold',
-    marginTop: 5,
-  },
-  instructions: {
-    color: '#DDD',
-    fontSize: 14,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  logo: {
-    height: Dimensions.get('window').height * 0.11,
-    marginVertical: Dimensions.get('window').height * 0.11,
-    width: Dimensions.get('window').height * 0.11 * (1950 / 662),
-  },
-  welcome: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-});
+import api from '~/services/api';
+import getRealm from '~/services/realm';
+import {isDeclaredPredicate} from '@babel/types';
 
-const Main = () => (
-  <ImageBackground
-    source={{
-      uri: 'https://s3-sa-east-1.amazonaws.com/rocketseat-cdn/background.png',
-    }}
-    style={styles.container}
-    resizeMode="cover"
-  >
-    <StatusBar barStyle="light-content" backgroundColor="#7159c1" />
-    <Image
-      source={{
-        uri: 'https://s3-sa-east-1.amazonaws.com/rocketseat-cdn/rocketseat_logo.png',
-      }}
-      style={styles.logo}
-      resizeMode="contain"
-    />
-    <Text style={styles.welcome}>Bem-vindo ao Template Básico!</Text>
-    <Text style={styles.instructions}>Essa é a tela principal da sua aplicação =)</Text>
-    <Text style={styles.instructions}>Você pode editar a tela no arquivo:</Text>
-    <Text style={[styles.instructions, styles.fileName]}>src/pages/Main/index.js</Text>
-  </ImageBackground>
-);
+export default function Main() {
+  const [input, setInput] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setloading] = useState(false);
+  const [repositories, setRepositories] = useState('');
 
-export default Main;
+  async function saveRepository(repository) {
+    const data = {
+      id: repository.id,
+      name: repository.name,
+      fullName: repository.full_name,
+      description: repository.description,
+      watchers: repository.subscribers_count,
+      stars: repository.stargazers_count,
+      forks: repository.forks_count,
+    };
+
+    const realm = await getRealm();
+    realm.write(() => {
+      realm.create('Repository', data, 'modified');
+    });
+
+    return data;
+  }
+
+  async function handleAddRepository() {
+    setloading(true);
+    try {
+      const response = await api.get(`/repos/${input}`);
+      await saveRepository(response.data);
+      setInput('');
+      setError(false);
+      Keyboard.dismiss();
+    } catch (err) {
+      setError(true);
+    }
+    setloading(false);
+  }
+
+  // async function handleDelRepository(repository) {
+  //   const realm = await getRealm();
+  //   realm.write(() => realm.delete(repository));
+  //   const data = realm.objects('Repository').sorted('stars', true);
+  //   setRepositories(data);
+  // }
+
+  async function handleRefreshRepository(dados_repo) {
+    const response = await api.get(`/repos/${dados_repo.fullName}`);
+    const data = await saveRepository(response.data);
+    setRepositories(
+      repositories.map(repo => (repo.id == data.id ? data : repo)),
+    );
+  }
+
+  useEffect(() => {
+    async function loadRepository() {
+      const realm = await getRealm();
+      const data = realm.objects('Repository').sorted('stars', true);
+      setRepositories(data);
+    }
+    loadRepository();
+  }, []);
+
+  return (
+    <Container>
+      <Title>Repositórios</Title>
+
+      <Form>
+        <Input
+          autocCapitalize="none"
+          autoCorrect={false}
+          error={error}
+          placeholder="Procurar repositório..."
+          value={input}
+          editable={!loading}
+          onChangeText={setInput}
+          keyboardShouldPersistTaps="handle"
+        />
+        <Submit onPress={handleAddRepository}>
+          {loading ? <Loading /> : <IconAdd />}
+        </Submit>
+      </Form>
+
+      <List
+        keyboardShouldPersistTaps="handle"
+        data={repositories}
+        keyExtractor={item => String(item.id)}
+        renderItem={({item}) => (
+          <Repository
+            data={item}
+            onRefresh={() => handleRefreshRepository(item)}
+            // deleteItem={() => handleDelRepository(item)}
+          />
+        )}
+      />
+    </Container>
+  );
+}
