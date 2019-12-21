@@ -17,7 +17,7 @@ import {
   IconEyes,
 } from './styles';
 
-const repository = ({data, onRefresh}) => (
+const repository = ({data, onRefresh, deleteItem}) => (
   <Container>
     <Name>{data.name}</Name>
     <Description>{data.description}</Description>
@@ -42,7 +42,7 @@ const repository = ({data, onRefresh}) => (
           <IconRefresh />
         </ButtonIcon>
 
-        <ButtonIcon onPress={() => {}}>
+        <ButtonIcon onPress={deleteItem}>
           <IconTrash />
         </ButtonIcon>
 

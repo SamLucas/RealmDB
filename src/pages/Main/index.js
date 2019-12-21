@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {Keyboard} from 'react-native';
+import {Keyboard, Alert} from 'react-native';
 import {
   Container,
   Title,
@@ -55,12 +55,28 @@ export default function Main() {
     setloading(false);
   }
 
-  // async function handleDelRepository(repository) {
-  //   const realm = await getRealm();
-  //   realm.write(() => realm.delete(repository));
-  //   const data = realm.objects('Repository').sorted('stars', true);
-  //   setRepositories(data);
-  // }
+  async function handleDelRepository(repository) {
+    Alert.alert(
+      'Atenção!',
+      `Deseja excluir o repositório "${repository.name}"?`,
+      [
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            try {
+              const realm = await getRealm();
+              realm.write(() => realm.delete(repository));
+              const data = realm.objects('Repository').sorted('stars', true);
+              setRepositories(data);
+            } catch (err) {
+              console.log('Algo de errado não esta certo', err);
+            }
+          },
+        },
+        {text: 'Cancelar', onPress: () => {}},
+      ],
+    );
+  }
 
   async function handleRefreshRepository(dados_repo) {
     const response = await api.get(`/repos/${dados_repo.fullName}`);
@@ -107,7 +123,7 @@ export default function Main() {
           <Repository
             data={item}
             onRefresh={() => handleRefreshRepository(item)}
-            // deleteItem={() => handleDelRepository(item)}
+            deleteItem={() => handleDelRepository(item)}
           />
         )}
       />
